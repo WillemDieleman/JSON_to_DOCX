@@ -57,6 +57,14 @@ public class FileUploadController {
 			RedirectAttributes redirectAttributes) {
 
 		storageService.store(file);
+
+		JSONtoDOCX output = new JSONtoDOCX(file);
+		try{
+			output.main();
+		}
+		catch (Exception e){
+			e.printStackTrace();
+		}
 		redirectAttributes.addFlashAttribute("message",
 				"You successfully uploaded " + file.getOriginalFilename() + "!");
 

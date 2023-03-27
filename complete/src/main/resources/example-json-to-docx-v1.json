@@ -1,0 +1,117 @@
+{
+  "fileName": "Europalaan_300_Utrecht.docx",
+  "frontPage": {
+    "title": "Valuation Report",
+    "titleSub": "Europalaan 300 3526 KS Utrecht",
+    "reportDate": "20 February 2023",
+    "valuationDate": "7 January 2023"
+  },
+  "documentHeader": {
+    "logo": "data:image/png;base64,iVBORw0KGgoAAAANSUh...",
+    "headerText": "Utrecht, Europalaan 300"
+  },
+  "documentFooter": {
+    "pageNumbers": true,
+    "footerText": "KATE Innovations"
+  },
+  "TableOfContent": true,
+  "sections": [
+    {
+      "title": "Opdracht informatie",
+      "introText": "Hier komt wat opdracht informatie",
+      "subSections": [
+        {
+          "title": "Opdrachtgever",
+          "introText": "KATE Innovations\nEuropalaan 300\n3526KS Utrecht\nNederland"
+        },
+        {
+          "title": "Opdrachtnemer",
+          "introText": "Willem"
+        },
+        {
+          "title": "Doel",
+          "introText": "Proof of concept json to docx"
+        }
+      ]
+    },
+    {
+      "title": "Meer informatie",
+      "introText": "Hier komt wat meer informatie in een nieuw hoofdstuk",
+      "subSections": [
+        {
+          "title": "Voorwaarden",
+          "introText": "De volgende voorwaarden gelden:",
+          "bullets": [
+            "voorwaarde 1",
+            "voorwaarde 2",
+            "voorwaarde 3"
+          ]
+        },
+        {
+          "title": "Bijzondere voorwaarden",
+          "introText": "De volgende bijzondere voorwaarden gelden:",
+          "bullets": [
+            "bijzondere voorwaarde 1",
+            "bijzondere voorwaarde 2",
+            "bijzondere voorwaarde 3"
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Section with image",
+      "introText": null,
+      "subSections": [
+        {
+          "title": "Overview in an image",
+          "image": {
+            "data": "data:image/png;base64,iVBORw0KGgoAAAANSUh...",
+            "align": "C",
+            "maxWidth": 100,
+            "maxHeight": 80,
+            "keepDimensions": true,
+            "altText": "Mooi plaatje"
+          }
+        },
+        {
+          "title": "More info",
+          "introText": "A lot of more info here"
+        }
+      ]
+    },
+    {
+      "title": "Section with table",
+      "introText": "Here below you will find some tables",
+      "subSections": [
+        {
+          "title": "Table 1",
+          "table": {
+            "headerRows": ["Column1","Column2","Column3","Column4"],
+            "dataRows": [
+              ["row 1 col 1","row 1 col 2","row 1 col 3","row 1 col 4"],
+              ["row 2 col 1","row 2 col 2","row 2 col 3","row 2 col 4"],
+              ["row 3 col 1","row 3 col 2","row 3 col 3","row 3 col 4"],
+              ["","","row 4 col 3","row 4 col 4"]
+            ]
+          }
+        },
+        {
+          "title": "More info",
+          "introText": "A lot of more info here"
+        }
+      ]
+    },
+    {
+      "title": "Laatste hoofdstuk",
+      "introText": "Het laatste wat we nog willen zeggen:",
+      "subSections": [ {
+        "bullets": [
+          "laatste opmerking 1",
+          "laatste opmerking 2",
+          "laatste opmerking 3"
+        ]
+      }
+      ]
+    }
+  ]
+}
