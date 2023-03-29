@@ -6,6 +6,7 @@ import org.apache.poi.wp.usermodel.HeaderFooterType;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
 
+import org.apache.xmlbeans.XmlException;
 import org.json.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -261,6 +262,11 @@ public class JSONtoDOCX {
             try {
                 JSONObject tableJSON = subsection.getJSONObject("table");
                 XWPFTable table = doc.createTable();
+
+                XWPFStyles styles = doc.getStyles();
+                XWPFStyle style = styles.getStyleWithName("Grid Table 4");
+                table.setStyleID(style.getStyleId());
+
                 JSONArray headers = tableJSON.getJSONArray("headerRows");
                 XWPFTableRow tableRowOne = table.getRow(0);
                 tableRowOne.getCell(0).setText(headers.getString(0));
@@ -277,6 +283,9 @@ public class JSONtoDOCX {
                 }
             } catch (JSONException ignored) {
 
+            }
+            catch (Exception e){
+                e.printStackTrace();
             }
 
             try {
@@ -299,7 +308,10 @@ public class JSONtoDOCX {
                 int height = image.getInt("maxHeight");
                 imageRun.addPicture(imageData, imageType, imageFileName, Units.toEMU(width), Units.toEMU(height));
 
-            } catch (Exception ignored) {
+            } catch (JSONException ignored) {
+            }
+            catch (Exception e){
+                e.printStackTrace();
             }
 
         }
