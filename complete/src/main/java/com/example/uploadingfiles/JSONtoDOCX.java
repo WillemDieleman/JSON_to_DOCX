@@ -3,15 +3,20 @@ package com.example.uploadingfiles;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.util.Units;
 import org.apache.poi.wp.usermodel.HeaderFooterType;
+import org.apache.poi.xslf.util.PDFFormat;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
-
-import org.json.*;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
-import org.apache.poi.poifs.dev.POIFSLister;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
 
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.*;
 import java.math.BigInteger;
 import java.net.URL;
@@ -328,18 +333,55 @@ public class JSONtoDOCX {
         //attachtments kunnen waarschijnlijk met een hyperlink
 
         XWPFParagraph paragraph = doc.createParagraph();
+        XWPFRun run = paragraph.createRun();
 
         // Add some text to the paragraph
-        paragraph.createRun().setText("This is a Word document with an attachment.");
+        //run.setText("This is a Word document with an attachment.");
 
         // Add an attachment to the document
-        File testing = new File("C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\resources\\Template.docx");
-        POIFSFileSystem fs = new POIFSFileSystem(testing);
-        //doc.
+
+        File pdf = Path.of("src\\main\\resources\\Prototype.pdf").toFile();
+        FileInputStream imageData = new FileInputStream(pdf);
+        run.addPicture(imageData, XWPFDocument.PICTURE_TYPE_JPEG, pdf.getName(), Units.toEMU(100), Units.toEMU(100));
 
 
         // Save the document to a file
         System.out.println("File attachment added to Word document.");
+
+        try {
+            String sourceDir = "C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\resources\\Prototype.pdf";
+            String destinationDir = "C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\PDF_images/"; // converted images from pdf document are saved here
+
+            File sourceFile = new File(sourceDir);
+            File destinationFile = new File(destinationDir);
+            if (!destinationFile.exists()) {
+                destinationFile.mkdir();
+                System.out.println("Folder Created -> "+ destinationFile.getAbsolutePath());
+            }
+            if (sourceFile.exists()) {
+                System.out.println("Images copied to Folder: "+ destinationFile.getName());
+                PDDocument document = PDDocument.load(sourceDir);
+                List<PDPage> list = document.getDocumentCatalog().getAllPages();
+                System.out.println("Total files to be converted -> "+ list.size());
+
+                String fileName = sourceFile.getName().replace(".pdf", "");
+                int pageNumber = 1;
+                for (PDPage page : list) {
+                    BufferedImage image = page.convertToImage();
+                    File outputfile = new File(destinationDir + fileName +"_"+ pageNumber +".png");
+                    System.out.println("Image Created -> "+ outputfile.getName());
+                    ImageIO.write(image, "png", outputfile);
+                    pageNumber++;
+                }
+                document.close();
+                System.out.println("Converted Images are saved at -> "+ destinationFile.getAbsolutePath());
+            } else {
+                System.err.println(sourceFile.getName() +" File not exists");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
 
 

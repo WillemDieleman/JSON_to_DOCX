@@ -11,10 +11,10 @@ pipeline {
 	}
 
 	stages {
-		stage("test: baseline (jdk17)") {
+		stage("test: baseline (jdk19)") {
 			agent {
 				docker {
-					image 'harbor-repo.vmware.com/dockerhub-proxy-cache/library/adoptopenjdk/openjdk17:latest'
+					image 'harbor-repo.vmware.com/dockerhub-proxy-cache/library/adoptopenjdk/openjdk19:latest'
 					args '-v $HOME/.m2:/tmp/jenkins-home/.m2'
 				}
 			}
