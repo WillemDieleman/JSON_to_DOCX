@@ -6,10 +6,11 @@ import org.apache.poi.wp.usermodel.HeaderFooterType;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
 
-import org.apache.xmlbeans.XmlException;
 import org.json.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.apache.poi.poifs.dev.POIFSLister;
 
 import java.io.*;
 import java.math.BigInteger;
@@ -50,6 +51,8 @@ public class JSONtoDOCX {
         XWPFDocument template = new XWPFDocument(new FileInputStream(Path.of("src", "main", "resources", "Template.docx").toFile()));
         XWPFStyles newStyles = doc.createStyles();
         newStyles.setStyles(template.getStyle());
+
+        Attachments();
 
         FrontPage();
         if (JSON.getBoolean("TableOfContent")) {
@@ -315,6 +318,30 @@ public class JSONtoDOCX {
             }
 
         }
+
+    }
+
+    private void Attachments() throws InvalidFormatException, IOException {
+//        OPCPackage opcPackage = OPCPackage.open(Path.of("src", "main", "resources", "Template.docx").toFile());
+//        System.out.println(opcPackage);
+
+        //attachtments kunnen waarschijnlijk met een hyperlink
+
+        XWPFParagraph paragraph = doc.createParagraph();
+
+        // Add some text to the paragraph
+        paragraph.createRun().setText("This is a Word document with an attachment.");
+
+        // Add an attachment to the document
+        File testing = new File("C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\resources\\Template.docx");
+        POIFSFileSystem fs = new POIFSFileSystem(testing);
+        //doc.
+
+
+        // Save the document to a file
+        System.out.println("File attachment added to Word document.");
+
+
 
     }
 
