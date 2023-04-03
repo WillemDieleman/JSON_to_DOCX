@@ -1,9 +1,11 @@
 package com.example.uploadingfiles;
 
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.util.Units;
 import org.apache.poi.wp.usermodel.HeaderFooterType;
-import org.apache.poi.xslf.util.PDFFormat;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
 import org.json.JSONArray;
@@ -12,7 +14,8 @@ import org.json.JSONObject;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
+//import org.apache.pdfbox.rendering.ImageType;
+//import org.apache.pdfbox.rendering.PDFRenderer;
 
 
 import javax.imageio.ImageIO;
@@ -57,14 +60,15 @@ public class JSONtoDOCX {
         XWPFStyles newStyles = doc.createStyles();
         newStyles.setStyles(template.getStyle());
 
-        Attachments();
-
         FrontPage();
         if (JSON.getBoolean("TableOfContent")) {
             TableOfContent();
         }
         HeaderFooter();
         Sections();
+        JSONObject attachments = JSON.getJSONObject("attachments");
+        if(attachments != null)
+            Attachments(attachments);
 
 
         FileOutputStream out = new FileOutputStream(Path.of("upload-dir", JSON.getString("fileName")).toFile());
@@ -140,7 +144,7 @@ public class JSONtoDOCX {
         JSONObject JSONHeader = JSON.getJSONObject("documentHeader");
         //picture
 
-        saveImage("https://cdn.pixabay.com/photo/2015/08/23/09/22/banner-902589__340.jpg","src\\main\\resources\\header.jpg");
+        saveFileFromUrl("https://cdn.pixabay.com/photo/2015/08/23/09/22/banner-902589__340.jpg","src\\main\\resources\\header.jpg");
         File image = Path.of("src/main/resources/header.jpg").toFile();
         FileInputStream imageData = new FileInputStream(image);
         int imageType = XWPFDocument.PICTURE_TYPE_JPEG;
@@ -194,15 +198,47 @@ public class JSONtoDOCX {
                 //no introText;
             }
 
-            JSONArray subsections = section.getJSONArray("subSections");
+            JSONArray subsections = null;
 
             try {
+                subsections = section.getJSONArray("subSections");
                 JSONObject check = (JSONObject) subsections.get(0);
                 check.getString("title");
-            } catch (JSONException ignored) {
+            } catch (JSONException e) {
+                try {
+                    JSONArray bullets = section.getJSONArray("bullets");
+                    CTAbstractNum cTAbstractNum = CTAbstractNum.Factory.newInstance();
+                    cTAbstractNum.setAbstractNumId(BigInteger.valueOf(0));
+
+                    CTLvl cTLvl = cTAbstractNum.addNewLvl();
+                    cTLvl.setIlvl(BigInteger.valueOf(0)); // set indent level 0
+                    cTLvl.addNewNumFmt().setVal(STNumberFormat.BULLET);
+                    cTLvl.addNewLvlText().setVal("•");
+
+
+                    XWPFAbstractNum abstractNum = new XWPFAbstractNum(cTAbstractNum);
+                    XWPFNumbering numbering = doc.createNumbering();
+                    BigInteger abstractNumID = numbering.addAbstractNum(abstractNum);
+                    BigInteger numID = numbering.addNum(abstractNumID);
+
+                    XWPFParagraph text;
+
+                    for (Object bullet : bullets) {
+                        String temp = (String) bullet;
+                        text = doc.createParagraph();
+                        text.setNumID(numID);
+                        XWPFRun subIntroText = text.createRun();
+                        subIntroText.setText(temp);
+                    }
+
+
+                } catch (JSONException ignored) {
+                    //no bullets
+                }
             }
 
-            SubSections(subsections);
+            if(subsections != null)
+                SubSections(subsections);
 
 
         }
@@ -307,7 +343,7 @@ public class JSONtoDOCX {
                     case "L" -> imageParagraph.setAlignment(ParagraphAlignment.LEFT);
                 }
 
-                saveImage("https://www.agilesparks.com/wp-content/uploads/2022/08/Java_logo_icon.png", "src\\main\\resources\\JAVA.jpeg");
+                saveFileFromUrl("https://www.agilesparks.com/wp-content/uploads/2022/08/Java_logo_icon.png", "src\\main\\resources\\JAVA.jpeg");
                 File imageFile = Path.of("src\\main\\resources\\JAVA.jpeg").toFile();
                 FileInputStream imageData = new FileInputStream(imageFile);
                 int imageType = XWPFDocument.PICTURE_TYPE_JPEG;
@@ -326,64 +362,103 @@ public class JSONtoDOCX {
 
     }
 
-    private void Attachments() throws InvalidFormatException, IOException {
-//        OPCPackage opcPackage = OPCPackage.open(Path.of("src", "main", "resources", "Template.docx").toFile());
-//        System.out.println(opcPackage);
-
-        //attachtments kunnen waarschijnlijk met een hyperlink
+    private void Attachments(JSONObject attachments) throws InvalidFormatException, IOException {
 
         XWPFParagraph paragraph = doc.createParagraph();
         XWPFRun run = paragraph.createRun();
+        run.addBreak(BreakType.PAGE);
+        run.setText(attachments.getString("title"));
+        if(attachments.getBoolean("toc")){
+            attachmentsTOC(attachments);
+        }
+        //saveFileFromUrl("https://www.africau.edu/images/default/sample.pdf", "src\\main\\resources\\sample.pdf");
 
-        // Add some text to the paragraph
-        //run.setText("This is a Word document with an attachment.");
+        JSONArray items = attachments.getJSONArray("items");
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            paragraph = doc.createParagraph();
+            run = paragraph.createRun();
+            run.setText(item.getString("title"));
 
-        // Add an attachment to the document
+            JSONArray files = item.getJSONArray("files");
+            for (int j = 0; j < files.length(); j++) {
+                String url = files.getString(j);
+                //saveFileFromUrl(url, "src\\main\\resources\\temp.pdf");
+                int pageNumber = 0;
+                String fileName = "";
+                try {
+                    String sourceDir = "C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\resources\\sample.pdf";
+                    String destinationDir = "C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\PDF_images/"; // converted images from pdf document are saved here
 
-        File pdf = Path.of("src\\main\\resources\\Prototype.pdf").toFile();
-        FileInputStream imageData = new FileInputStream(pdf);
-        run.addPicture(imageData, XWPFDocument.PICTURE_TYPE_JPEG, pdf.getName(), Units.toEMU(100), Units.toEMU(100));
+                    File sourceFile = Path.of("src\\main\\resources\\sample.pdf").toFile();
+                    File destinationFile = Path.of("src\\main\\PDF_images/").toFile();
 
+                    //file found checker
+                    try(InputStream stream = new FileInputStream(sourceFile)){
+                        System.out.println("File found!");
+                    }
+                    catch (FileNotFoundException e){
+                        e.printStackTrace();
+                    }
 
-        // Save the document to a file
-        System.out.println("File attachment added to Word document.");
+                    if (!destinationFile.exists()) {
+                        destinationFile.mkdir();
+                        System.out.println("Folder Created -> "+ destinationFile.getAbsolutePath());
+                    }
+                    if (sourceFile.exists()) {
+                        System.out.println("Images copied to Folder Location: "+ destinationFile.getAbsolutePath());
+                        PDDocument document = PDDocument.load(sourceFile);
+                        PDFRenderer pdfRenderer = new PDFRenderer(document);
 
-        try {
-            String sourceDir = "C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\resources\\Prototype.pdf";
-            String destinationDir = "C:\\Users\\limmi\\Documents\\OOPP\\gs-uploading-files\\complete\\src\\main\\PDF_images/"; // converted images from pdf document are saved here
+                        pageNumber = document.getNumberOfPages();
+                        System.out.println("Total files to be converting -> "+ pageNumber);
 
-            File sourceFile = new File(sourceDir);
-            File destinationFile = new File(destinationDir);
-            if (!destinationFile.exists()) {
-                destinationFile.mkdir();
-                System.out.println("Folder Created -> "+ destinationFile.getAbsolutePath());
-            }
-            if (sourceFile.exists()) {
-                System.out.println("Images copied to Folder: "+ destinationFile.getName());
-                PDDocument document = PDDocument.load(sourceDir);
-                List<PDPage> list = document.getDocumentCatalog().getAllPages();
-                System.out.println("Total files to be converted -> "+ list.size());
+                        fileName = sourceFile.getName().replace(".pdf", "");
+                        String fileExtension= "png";
+                        int dpi = 400;
 
-                String fileName = sourceFile.getName().replace(".pdf", "");
-                int pageNumber = 1;
-                for (PDPage page : list) {
-                    BufferedImage image = page.convertToImage();
-                    File outputfile = new File(destinationDir + fileName +"_"+ pageNumber +".png");
-                    System.out.println("Image Created -> "+ outputfile.getName());
-                    ImageIO.write(image, "png", outputfile);
-                    pageNumber++;
+                        for (int k = 0; k < pageNumber; ++k) {
+                            File outPutFile = new File(destinationFile.getAbsolutePath() + fileName +"_"+ (k+1) +"."+ fileExtension);
+                            BufferedImage bImage = pdfRenderer.renderImageWithDPI(k, dpi, ImageType.RGB);
+                            ImageIO.write(bImage, fileExtension, outPutFile);
+                        }
+
+                        document.close();
+                        System.out.println("Converted Images are saved at -> "+ destinationFile.getAbsolutePath());
+                    } else {
+                        System.err.println(sourceFile.getName() +" File not exists");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-                document.close();
-                System.out.println("Converted Images are saved at -> "+ destinationFile.getAbsolutePath());
-            } else {
-                System.err.println(sourceFile.getName() +" File not exists");
-            }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+                for (int k = 1; k <= pageNumber; k++) {
+                    File pdf = Path.of("src", "main", "PDF_images", fileName + "_" + k + ".png").toFile();
+                    InputStream stream = new FileInputStream(pdf);
+                    String imageFileName = pdf.getName();
+                    run.addPicture(stream, XWPFDocument.PICTURE_TYPE_PNG, imageFileName, Units.toEMU(450), Units.toEMU(600));
+
+                }
+            }
+            if(i != items.length() - 1)
+                run.addBreak(BreakType.PAGE);
         }
 
+    }
 
+    private void attachmentsTOC(JSONObject attachments) {
+        XWPFParagraph paragraph = doc.createParagraph();
+        XWPFRun run = paragraph.createRun();
+        run.setText("Table of content for the appencides:");
+
+        JSONArray items = attachments.getJSONArray("items");
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.getJSONObject(i);
+            paragraph = doc.createParagraph();
+            run = paragraph.createRun();
+            run.setText("   - " + item.getString("title"));
+
+        }
 
     }
 
@@ -422,8 +497,8 @@ public class JSONtoDOCX {
         styles.addStyle(style);
     }
 
-    public static void saveImage(String imageUrl, String destinationFile) throws IOException {
-        URL url = new URL(imageUrl);
+    public static void saveFileFromUrl(String URL, String destinationFile) throws IOException {
+        URL url = new URL(URL);
         InputStream is = url.openStream();
         OutputStream os = new FileOutputStream(Path.of(destinationFile).toFile());
 

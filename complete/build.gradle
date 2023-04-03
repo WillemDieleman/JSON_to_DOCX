@@ -20,6 +20,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	testImplementation('org.springframework.boot:spring-boot-starter-test')
+	//implementation group: 'org.apache.pdfbox', name: 'fontbox', version: '3.0.0-RC1'
+	//implementation group: 'org.apache.pdfbox', name: 'pdfbox', version: '3.0.0-RC1'
 
 
 
