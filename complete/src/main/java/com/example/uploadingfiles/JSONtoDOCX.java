@@ -8,9 +8,13 @@ import org.apache.poi.util.Units;
 import org.apache.poi.wp.usermodel.HeaderFooterType;
 import org.apache.poi.xwpf.model.XWPFHeaderFooterPolicy;
 import org.apache.poi.xwpf.usermodel.*;
+import org.apache.xmlbeans.XmlCursor;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.openxmlformats.schemas.drawingml.x2006.main.CTGraphicalObject;
+import org.openxmlformats.schemas.drawingml.x2006.picture.CTPicture;
+import org.openxmlformats.schemas.drawingml.x2006.wordprocessingDrawing.CTAnchor;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -131,7 +135,7 @@ public class JSONtoDOCX {
         run.addBreak(BreakType.PAGE);
     }
 
-    private void HeaderFooter() throws IOException, InvalidFormatException {
+    private void HeaderFooter() throws Exception {
         doc.createHeader(HeaderFooterType.FIRST);
 
 
@@ -145,22 +149,42 @@ public class JSONtoDOCX {
         XWPFRun run = headerParagraph.createRun();
         JSONObject JSONHeader = JSON.getJSONObject("documentHeader");
         //picture
+
         String url = JSONHeader.getString("logo");
         saveFileFromUrl(url,"src\\main\\resources\\header.jpg");
         File image = Path.of("src/main/resources/header.jpg").toFile();
+        BufferedImage BI = ImageIO.read(image);
         FileInputStream imageData = new FileInputStream(image);
         int imageType = XWPFDocument.PICTURE_TYPE_JPEG;
         String imageFileName = image.getName();
-        int width = 600;
-        int height = 152/4;
+        int width = BI.getWidth()/4;
+        int height = BI.getHeight()/4;
         run.addPicture(imageData, imageType, imageFileName, Units.toEMU(width), Units.toEMU(height));
+        CTDrawing drawing = run.getCTR().getDrawingArray(0);
+        CTGraphicalObject graphicalobject = drawing.getInlineArray(0).getGraphic();
+        CTAnchor anchor = getAnchorWithGraphic(graphicalobject, "header.jpeg",
+                Units.toEMU(width), Units.toEMU(height),
+                Units.toEMU(-60), Units.toEMU(-40));
+        drawing.setAnchorArray(new CTAnchor[]{anchor});
+        drawing.removeInline(0);
         run.addBreak();
         run.setText(JSONHeader.getString("headerText"));
         //footer
         XWPFFooter footer = headerFooterPolicy.createFooter(XWPFHeaderFooterPolicy.DEFAULT);
-        XWPFParagraph footerParagraph = footer.createParagraph();
-        footerParagraph.setAlignment(ParagraphAlignment.CENTER);
+        XWPFTable footerTable = footer.createTable(1,1);
+        footerTable.setStyleID(doc.getStyles().getStyleWithName("Table Grid").getStyleId());
+        XWPFTableRow row = footerTable.getRow(0);
+        row.setHeight(1440);
+        XWPFTableCell cell = row.getCell(0);
+        footerTable.setWidth("132%");
+
+        footerTable.setTableAlignment(TableRowAlign.CENTER);
+        cell.setColor("005B82");
+        cell.addParagraph(doc.createParagraph());
+
+        XWPFParagraph footerParagraph = cell.getParagraphs().get(0);
         run = footerParagraph.createRun();
+        footerParagraph.setAlignment(ParagraphAlignment.CENTER);
         JSONObject JSONFooter = JSON.getJSONObject("documentFooter");
         run.setText(JSONFooter.getString("footerText"));
         run.addBreak();
@@ -173,12 +197,25 @@ public class JSONtoDOCX {
             footerParagraph.getCTP().addNewFldSimple().setInstr("NUMPAGES \\* MERGEFORMAT");
         }
 
+        CTSectPr sectPr = doc.getDocument().getBody().getSectPr();
+        if (sectPr == null) sectPr = doc.getDocument().getBody().addNewSectPr();
+        CTPageMar pageMar = sectPr.getPgMar();
+        if (pageMar == null) pageMar = sectPr.addNewPgMar();
+        pageMar.setFooter(BigInteger.valueOf(0)); //28.4 pt * 20 = 568 = 28.4 pt footer from bottom
+
+        footerTable.setBottomBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        footerTable.setRightBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        footerTable.setLeftBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        footerTable.setTopBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        footerTable.setInsideHBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        footerTable.setInsideVBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+
     }
 
     private void Sections() {
         JSONArray sectionsArray = JSON.getJSONArray("sections");
         titles = doc.createParagraph();
-        XWPFParagraph texts;
+        XWPFParagraph texts = null;
 
 
         for (int i = 0; i < sectionsArray.length(); i++) {
@@ -247,8 +284,9 @@ public class JSONtoDOCX {
             if(subsections != null)
                 SubSections(subsections, i);
 
-
+            doc.createParagraph().createRun().addBreak(BreakType.PAGE);
         }
+
 
     }
 
@@ -321,19 +359,17 @@ public class JSONtoDOCX {
             try {
                 JSONObject tableJSON = subsection.getJSONObject("table");
                 XWPFTable table = doc.createTable();
-
                 XWPFStyles styles = doc.getStyles();
                 XWPFStyle style = styles.getStyleWithName("Table Grid");
                 table.setStyleID(style.getStyleId());
                 String check = "";
-                table.setBottomBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setLeftBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setRightBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setTopBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setInsideVBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setInsideHBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
                 if(i == 0) table.setWidth("50%");
-
+                table.setBottomBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+                table.setRightBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+                table.setLeftBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+                table.setTopBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+                table.setInsideHBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+                table.setInsideVBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
 
                 try{
                     JSONArray headers = tableJSON.getJSONArray("dataHeaders");
@@ -363,12 +399,15 @@ public class JSONtoDOCX {
                     for (int l = 0; l < row.length(); l++) {
                         XWPFTableCell cell = nextRow.getCell(l);
                         if(l == 0) cell.setWidth("30%");
-                        cell.setText(row.getString(l));
-                        //if(l != row.length() -1 && check.equals("")) nextRow.addNewTableCell();
+//                        cell.setText(row.getString(l));
+//                        cell.setText("\u000B");
+//                        cell.setText(row.getString(l));
+                        XWPFRun run = cell.getParagraphs().get(0).createRun();
+                        addlongTextToRun(row.getString(l), run);
+
                     }
                     nextRow.setHeight((int)(1440/3));
-                    nextRow.getCtRow().getTrPr().getTrHeightArray(0).setHRule(STHeightRule.EXACT);
-                    System.out.println(nextRow.getHeight());
+                    nextRow.getCtRow().getTrPr().getTrHeightArray(0).setHRule(STHeightRule.AT_LEAST);
                 }
                 data = tableJSON.getJSONArray("dataTotals");
                 for (int k = 0; k < data.length(); k++) {
@@ -380,6 +419,7 @@ public class JSONtoDOCX {
                         if(l != row.length() -1 && check.equals("")) nextRow.addNewTableCell();
                     }
                 }
+
             } catch (JSONException ignored) {
 
             }
@@ -399,17 +439,25 @@ public class JSONtoDOCX {
                     case "L" -> imageParagraph.setAlignment(ParagraphAlignment.LEFT);
                 }
                 String url = image.getString("data");
-//                try{
-//                    //saveFileFromUrl(url, "src\\main\\resources\\temp.png");
-//                }
-//                //catch (MalformedURLException ignored){}
+                try{
+                    saveFileFromUrl(url, "src\\main\\resources\\temp.png");
+                }
+                catch (MalformedURLException ignored){}
                 File imageFile = Path.of("src\\main\\resources\\temp.png").toFile();
+
                 FileInputStream imageData = new FileInputStream(imageFile);
                 int imageType = XWPFDocument.PICTURE_TYPE_JPEG;
                 String imageFileName = imageFile.getName();
                 int width = image.getInt("maxWidth");
                 int height = image.getInt("maxHeight");
                 imageRun.addPicture(imageData, imageType, imageFileName, Units.toEMU(width), Units.toEMU(height));
+                CTDrawing drawing = imageRun.getCTR().getDrawingArray(0);
+                CTGraphicalObject graphicalobject = drawing.getInlineArray(0).getGraphic();
+                CTAnchor anchor = getAnchorWithGraphic(graphicalobject, "header.jpeg",
+                        Units.toEMU(width), Units.toEMU(height),
+                        Units.toEMU(400), Units.toEMU(-100));
+                drawing.setAnchorArray(new CTAnchor[]{anchor});
+                drawing.removeInline(0);
 
             } catch (JSONException ignored) {
             }
@@ -611,7 +659,6 @@ public class JSONtoDOCX {
 
                     //file found checker
                     try(InputStream stream = new FileInputStream(sourceFile)){
-                        System.out.println("File found!");
                     }
                     catch (FileNotFoundException e){
                         e.printStackTrace();
@@ -619,15 +666,12 @@ public class JSONtoDOCX {
 
                     if (!destinationFile.exists()) {
                         destinationFile.mkdir();
-                        System.out.println("Folder Created -> "+ destinationFile.getAbsolutePath());
                     }
                     if (sourceFile.exists()) {
-                        System.out.println("Images copied to Folder Location: "+ destinationFile.getAbsolutePath());
                         PDDocument document = PDDocument.load(sourceFile);
                         PDFRenderer pdfRenderer = new PDFRenderer(document);
 
                         pageNumber = document.getNumberOfPages();
-                        System.out.println("Total files to be converting -> "+ pageNumber);
 
                         fileName = sourceFile.getName().replace(".pdf", "");
                         String fileExtension= "png";
@@ -640,9 +684,7 @@ public class JSONtoDOCX {
                         }
 
                         document.close();
-                        System.out.println("Converted Images are saved at -> "+ destinationFile.getAbsolutePath());
                     } else {
-                        System.err.println(sourceFile.getName() +" File not exists");
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -750,18 +792,32 @@ public class JSONtoDOCX {
             run.setText(data, 0);
         }
     }
-    private void addLongTextToCell(String data, XWPFTableCell cell){
-        if (data.contains("\n")) {
-            String[] lines = data.split("\n");
-            cell.setText(lines[0]); // set first line into XWPFRun
-            for(int i=1;i<lines.length;i++){
-                // add break and insert new text
-                //cell.set;
-                cell.setText(lines[i]);
-            }
-        } else {
-            cell.setText(data);
-        }
+    private CTAnchor getAnchorWithGraphic(CTGraphicalObject graphicalobject, String drawingDescr, int width, int height, int left, int top) throws Exception {
+
+        String anchorXML =
+                "<wp:anchor xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" "
+                        +"simplePos=\"0\" relativeHeight=\"0\" behindDoc=\"1\" locked=\"0\" layoutInCell=\"1\" allowOverlap=\"1\">"
+                        +"<wp:simplePos x=\"0\" y=\"0\"/>"
+                        +"<wp:positionH relativeFrom=\"column\"><wp:posOffset>"+left+"</wp:posOffset></wp:positionH>"
+                        +"<wp:positionV relativeFrom=\"paragraph\"><wp:posOffset>"+top+"</wp:posOffset></wp:positionV>"
+                        +"<wp:extent cx=\""+width+"\" cy=\""+height+"\"/>"
+                        +"<wp:effectExtent l=\"0\" t=\"0\" r=\"0\" b=\"0\"/>"
+                        +"<wp:wrapTight wrapText=\"bothSides\">"
+                        +"<wp:wrapPolygon edited=\"0\">"
+                        +"<wp:start x=\"0\" y=\"0\"/>"
+                        +"<wp:lineTo x=\"0\" y=\"21600\"/>" //Square polygon 21600 x 21600 leads to wrap points in fully width x height
+                        +"<wp:lineTo x=\"21600\" y=\"21600\"/>"// Why? I don't know. Try & error ;-).
+                        +"<wp:lineTo x=\"21600\" y=\"0\"/>"
+                        +"<wp:lineTo x=\"0\" y=\"0\"/>"
+                        +"</wp:wrapPolygon>"
+                        +"</wp:wrapTight>"
+                        +"<wp:docPr id=\"1\" name=\"Drawing 0\" descr=\""+drawingDescr+"\"/><wp:cNvGraphicFramePr/>"
+                        +"</wp:anchor>";
+
+        CTDrawing drawing = CTDrawing.Factory.parse(anchorXML);
+        CTAnchor anchor = drawing.getAnchorArray(0);
+        anchor.setGraphic(graphicalobject);
+        return anchor;
     }
 
 
