@@ -41,6 +41,9 @@ public class JSONtoDOCX {
 
     private File output;
 
+    private int widthInt = 0;
+    private int tableHeigth = 0;
+
     public JSONtoDOCX(MultipartFile file) {
         this.file = file;
     }
@@ -218,6 +221,7 @@ public class JSONtoDOCX {
         XWPFParagraph texts = null;
 
 
+
         for (int i = 0; i < sectionsArray.length(); i++) {
             JSONObject section = (JSONObject) sectionsArray.get(i);
             titles = doc.createParagraph();
@@ -294,6 +298,7 @@ public class JSONtoDOCX {
         XWPFParagraph subtitle;
         XWPFParagraph subtext;
 
+        boolean hasHeaders = false;
         for (int j = 0; j < subsections.length(); j++) {
             JSONObject subsection = subsections.getJSONObject(j);
 
@@ -358,71 +363,11 @@ public class JSONtoDOCX {
             //table
             try {
                 JSONObject tableJSON = subsection.getJSONObject("table");
-                XWPFTable table = doc.createTable();
-                XWPFStyles styles = doc.getStyles();
-                XWPFStyle style = styles.getStyleWithName("Table Grid");
-                table.setStyleID(style.getStyleId());
-                String check = "";
-                if(i == 0) table.setWidth("50%");
-                table.setBottomBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
-                table.setRightBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
-                table.setLeftBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
-                table.setTopBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
-                table.setInsideHBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
-                table.setInsideVBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+                table(tableJSON);
 
-                try{
-                    JSONArray headers = tableJSON.getJSONArray("dataHeaders");
-                    check = headers.getString(0);
-                    XWPFTableRow tableRowOne = table.getRow(0);
-                    tableRowOne.getCell(0).setText(headers.getString(0));
-                    for (int k = 1; k < headers.length(); k++) {
-                        tableRowOne.addNewTableCell().setText(headers.getString(k));
-                    }
-                }
-                catch (JSONException e){
-                    //no reader rows
-                }
-
-                JSONArray data = tableJSON.getJSONArray("dataRows");
-                XWPFTableRow tableRowOne = table.getRow(0);
-                tableRowOne.setHeight((int)(1440/3));
-                tableRowOne.getCell(0).setText(data.getJSONArray(0).getString(0));
-                for (int k = 1; k < data.getJSONArray(0).length(); k++) {
-                    tableRowOne.addNewTableCell().setText(data.getJSONArray(0).getString(k));
-                }
-                for (int k = 1; k < data.length(); k++) {
-                    JSONArray row = data.getJSONArray(k);
-                    XWPFTableRow nextRow = table.createRow();
-
-
-                    for (int l = 0; l < row.length(); l++) {
-                        XWPFTableCell cell = nextRow.getCell(l);
-                        if(l == 0) cell.setWidth("30%");
-//                        cell.setText(row.getString(l));
-//                        cell.setText("\u000B");
-//                        cell.setText(row.getString(l));
-                        XWPFRun run = cell.getParagraphs().get(0).createRun();
-                        addlongTextToRun(row.getString(l), run);
-
-                    }
-                    nextRow.setHeight((int)(1440/3));
-                    nextRow.getCtRow().getTrPr().getTrHeightArray(0).setHRule(STHeightRule.AT_LEAST);
-                }
-                data = tableJSON.getJSONArray("dataTotals");
-                for (int k = 0; k < data.length(); k++) {
-                    JSONArray row = data.getJSONArray(k);
-                    XWPFTableRow nextRow = table.createRow();
-                    for (int l = 0; l < row.length(); l++) {
-
-                        nextRow.getCell(l).setText(row.getString(l));
-                        if(l != row.length() -1 && check.equals("")) nextRow.addNewTableCell();
-                    }
-                }
-
-            } catch (JSONException ignored) {
 
             }
+            catch (JSONException ignored){}
             catch (Exception e){
                 e.printStackTrace();
             }
@@ -430,37 +375,9 @@ public class JSONtoDOCX {
             //image
             try {
                 JSONObject image = subsection.getJSONObject("image");
-                XWPFParagraph imageParagraph = doc.createParagraph();
-                XWPFRun imageRun = imageParagraph.createRun();
-                String alignment = image.getString("align");
-                switch (alignment) {
-                    case "C" -> imageParagraph.setAlignment(ParagraphAlignment.CENTER);
-                    case "R" -> imageParagraph.setAlignment(ParagraphAlignment.RIGHT);
-                    case "L" -> imageParagraph.setAlignment(ParagraphAlignment.LEFT);
-                }
-                String url = image.getString("data");
-                try{
-                    saveFileFromUrl(url, "src\\main\\resources\\temp.png");
-                }
-                catch (MalformedURLException ignored){}
-                File imageFile = Path.of("src\\main\\resources\\temp.png").toFile();
-
-                FileInputStream imageData = new FileInputStream(imageFile);
-                int imageType = XWPFDocument.PICTURE_TYPE_JPEG;
-                String imageFileName = imageFile.getName();
-                int width = image.getInt("maxWidth");
-                int height = image.getInt("maxHeight");
-                imageRun.addPicture(imageData, imageType, imageFileName, Units.toEMU(width), Units.toEMU(height));
-                CTDrawing drawing = imageRun.getCTR().getDrawingArray(0);
-                CTGraphicalObject graphicalobject = drawing.getInlineArray(0).getGraphic();
-                CTAnchor anchor = getAnchorWithGraphic(graphicalobject, "header.jpeg",
-                        Units.toEMU(width), Units.toEMU(height),
-                        Units.toEMU(400), Units.toEMU(-100));
-                drawing.setAnchorArray(new CTAnchor[]{anchor});
-                drawing.removeInline(0);
-
-            } catch (JSONException ignored) {
+                image(image);
             }
+            catch (JSONException ignored) {}
             catch (Exception e){
                 e.printStackTrace();
             }
@@ -472,6 +389,7 @@ public class JSONtoDOCX {
             catch (JSONException ignored){}
 
         }
+
 
     }
 
@@ -533,59 +451,7 @@ public class JSONtoDOCX {
             //table
             try {
                 JSONObject tableJSON = subsection.getJSONObject("table");
-                XWPFTable table = doc.createTable();
-
-
-
-                XWPFStyles styles = doc.getStyles();
-                XWPFStyle style = styles.getStyleWithName("Table Grid");
-                table.setStyleID(style.getStyleId());
-                String check = "";
-                table.setBottomBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setLeftBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setRightBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setTopBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setInsideVBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-                table.setInsideHBorder(XWPFTable.XWPFBorderType.NONE,0,0,null);
-
-                try{
-                    JSONArray headers = tableJSON.getJSONArray("dataHeaders");
-                    check = headers.getString(0);
-                    XWPFTableRow tableRowOne = table.getRow(0);
-                    tableRowOne.getCell(0).setText(headers.getString(0));
-                    for (int k = 1; k < headers.length(); k++) {
-                        tableRowOne.addNewTableCell().setText(headers.getString(k));
-                    }
-                }
-                catch (JSONException e){
-                    //no reader rows
-                }
-
-                JSONArray data = tableJSON.getJSONArray("dataRows");
-                XWPFTableRow tableRowOne = table.getRow(0);
-                tableRowOne.getCell(0).setText(data.getJSONArray(0).getString(0));
-                for (int k = 1; k < data.getJSONArray(0).length(); k++) {
-                    tableRowOne.addNewTableCell().setText(data.getJSONArray(0).getString(k));
-                }
-                for (int k = 1; k < data.length(); k++) {
-                    JSONArray row = data.getJSONArray(k);
-                    XWPFTableRow nextRow = table.createRow();
-                    for (int l = 0; l < row.length(); l++) {
-
-                        nextRow.getCell(l).setText(row.getString(l));
-                        //if(l != row.length() -1 && check.equals("")) nextRow.addNewTableCell();
-                    }
-                }
-                data = tableJSON.getJSONArray("dataTotals");
-                for (int k = 0; k < data.length(); k++) {
-                    JSONArray row = data.getJSONArray(k);
-                    XWPFTableRow nextRow = table.createRow();
-                    for (int l = 0; l < row.length(); l++) {
-
-                        nextRow.getCell(l).setText(row.getString(l));
-                        if(l != row.length() -1 && check.equals("")) nextRow.addNewTableCell();
-                    }
-                }
+                table(tableJSON);
             } catch (JSONException ignored) {
 
             }
@@ -596,26 +462,7 @@ public class JSONtoDOCX {
             //image
             try {
                 JSONObject image = subsection.getJSONObject("image");
-                XWPFParagraph imageParagraph = doc.createParagraph();
-                XWPFRun imageRun = imageParagraph.createRun();
-                String alignment = image.getString("align");
-                switch (alignment) {
-                    case "C" -> imageParagraph.setAlignment(ParagraphAlignment.CENTER);
-                    case "R" -> imageParagraph.setAlignment(ParagraphAlignment.RIGHT);
-                    case "L" -> imageParagraph.setAlignment(ParagraphAlignment.LEFT);
-                }
-                String url = image.getString("data");
-//                try{
-//                    //saveFileFromUrl(url, "src\\main\\resources\\temp.png");
-//                }
-//                //catch (MalformedURLException ignored){}
-                File imageFile = Path.of("src\\main\\resources\\temp.png").toFile();
-                FileInputStream imageData = new FileInputStream(imageFile);
-                int imageType = XWPFDocument.PICTURE_TYPE_JPEG;
-                String imageFileName = imageFile.getName();
-                int width = image.getInt("maxWidth");
-                int height = image.getInt("maxHeight");
-                imageRun.addPicture(imageData, imageType, imageFileName, Units.toEMU(width), Units.toEMU(height));
+                image(image);
 
             } catch (JSONException ignored) {
             }
@@ -623,6 +470,132 @@ public class JSONtoDOCX {
                 e.printStackTrace();
             }
 
+        }
+    }
+
+    private void table(JSONObject tableJSON){
+        boolean hasHeaders = false;
+        tableHeigth = 0;
+        XWPFTable table = doc.createTable();
+        XWPFStyles styles = doc.getStyles();
+        XWPFStyle style = styles.getStyleWithName("Table Grid");
+        table.setStyleID(style.getStyleId());
+        String check = "";
+        String width = tableJSON.getString("width");
+        widthInt = Integer.parseInt(width.replace("%", ""));
+        table.setWidth(width);
+        table.setBottomBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        table.setRightBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        table.setLeftBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        table.setTopBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        table.setInsideHBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+        table.setInsideVBorder(XWPFTable.XWPFBorderType.NONE, 0, 0, null);
+
+        try{
+            JSONArray headers = tableJSON.getJSONArray("dataHeaders");
+            check = headers.getString(0);
+            hasHeaders = true;
+            XWPFTableRow tableRowOne = table.getRow(0);
+            XWPFTableCell cell = tableRowOne.getCell(0);
+            cell.setColor("005B82");
+            cell.setText(check);
+            for (int k = 1; k < headers.length(); k++) {
+                cell = tableRowOne.addNewTableCell();
+                cell.setColor("005B82");
+                cell.setText(headers.getString(k));
+            }
+
+            tableHeigth += tableRowOne.getHeight();
+
+        }
+        catch (JSONException e){
+            //no reader rows
+        }
+
+        JSONArray data = tableJSON.getJSONArray("dataRows");
+        XWPFTableRow tableRowOne;
+        if(hasHeaders){
+            table.createRow();
+            tableRowOne = table.getRow(1);
+            for (int k = 0; k < data.getJSONArray(0).length(); k++) {
+                tableRowOne.getCell(k).setText(data.getJSONArray(0).getString(k));
+            }
+        }
+        else{
+            tableRowOne = table.getRow(0);
+            for (int k = 1; k < data.getJSONArray(0).length(); k++) {
+                tableRowOne.addNewTableCell().setText(data.getJSONArray(0).getString(k));
+            }
+            tableRowOne.getCell(0).setText(data.getJSONArray(0).getString(0));
+        }
+        tableRowOne.setHeight((int)(1440/3));
+
+        tableHeigth += tableRowOne.getHeight();
+
+
+        for (int k = 1; k < data.length(); k++) {
+            JSONArray row = data.getJSONArray(k);
+            XWPFTableRow nextRow = table.createRow();
+            for (int l = 0; l < row.length(); l++) {
+                XWPFTableCell cell = nextRow.getCell(l);
+                cell.setWidth(widthInt/row.length() + "%");
+                XWPFRun run = cell.getParagraphs().get(0).createRun();
+                addlongTextToRun(row.getString(l), run);
+
+            }
+            nextRow.setHeight((int)(1440/3));
+            nextRow.getCtRow().getTrPr().getTrHeightArray(0).setHRule(STHeightRule.AT_LEAST);
+            tableHeigth += nextRow.getHeight();
+        }
+        data = tableJSON.getJSONArray("dataTotals");
+        for (int k = 0; k < data.length(); k++) {
+            JSONArray row = data.getJSONArray(k);
+            XWPFTableRow nextRow = table.createRow();
+            for (int l = 0; l < row.length(); l++) {
+                nextRow.getCell(l).setText(row.getString(l));
+
+            }
+            tableHeigth += nextRow.getHeight();
+        }
+
+    }
+
+    private void image(JSONObject image) throws Exception {
+        XWPFParagraph imageParagraph = doc.createParagraph();
+        XWPFRun imageRun = imageParagraph.createRun();
+        String alignment = image.getString("align");
+        switch (alignment) {
+            case "C" -> imageParagraph.setAlignment(ParagraphAlignment.CENTER);
+            case "R" -> imageParagraph.setAlignment(ParagraphAlignment.RIGHT);
+            case "L" -> imageParagraph.setAlignment(ParagraphAlignment.LEFT);
+        }
+        String url = image.getString("data");
+        try{
+            saveFileFromUrl(url, "src\\main\\resources\\temp.png");
+        }
+        catch (IOException ignored){}
+        File imageFile = Path.of("src\\main\\resources\\temp.png").toFile();
+
+        String widthString = image.getString("width");
+        int factor = Integer.parseInt(widthString.replace("%", ""));
+        FileInputStream imageData = new FileInputStream(imageFile);
+        BufferedImage bi = ImageIO.read(imageData);
+        int imageType = XWPFDocument.PICTURE_TYPE_PNG;
+        String imageFileName = imageFile.getName();
+        int cm = Units.EMU_PER_CENTIMETER;
+        double full = cm * (21.59 - 5);
+        double width = full * factor / 100;
+        double height = (double)bi.getHeight()/ (double)bi.getWidth() * width;
+
+        imageRun.addPicture(new FileInputStream(imageFile), imageType, imageFileName, (int)width, (int)height);
+        if(widthInt != 0 && widthInt + factor <= 100){
+            CTDrawing drawing = imageRun.getCTR().getDrawingArray(0);
+            CTGraphicalObject graphicalobject = drawing.getInlineArray(0).getGraphic();
+            CTAnchor anchor = getAnchorWithGraphic(graphicalobject, "header.jpeg",
+                    (int)width, (int)height,
+                    (int)full * widthInt/ 100, (int) -(5*cm));
+            drawing.setAnchorArray(new CTAnchor[]{anchor});
+            drawing.removeInline(0);
         }
     }
 
